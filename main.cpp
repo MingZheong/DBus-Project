@@ -35,5 +35,5 @@ int main(){
     Message m;
     float f = 12.12;
     double d = 231.21;
-    foo(1, i,hi,li,lli,c,cstr,cstr2,str,m,f,d,"const char *");
+    foo(1, i, hi, li, lli, c, cstr, cstr2, str, m, f, d, "const char *");
 }
