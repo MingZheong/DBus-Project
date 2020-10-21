@@ -2,17 +2,14 @@
 # Makefile
 #
 
-all: add-server add-client
+all: dbus-test 
 
-%.o: %.c
+%.o: %.cpp
 	gcc -Wall -c $< `pkg-config --cflags dbus-1`
 
-add-server: add-server.o
-	gcc add-server.o -o add-server `pkg-config --libs dbus-1`
-
-add-client: add-client.o
-	gcc add-client.o -o add-client `pkg-config --libs dbus-1`
+dbus-test: DBus_Base.o main.o
+	g++ DBus_Base.o main.o -o dbus-test `pkg-config --libs dbus-1`
 
 .PHONY: clean $(all)
 clean:
-	rm *.o add-server add-client      
+	rm *.o dbus-test 
