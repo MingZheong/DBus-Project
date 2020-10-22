@@ -13,7 +13,7 @@ using namespace std;
 int main(){
     DBUS::DBus_Base dbus("dev");
 
-    while(1){
+    // while(1){
         
         Message msg;
         DBUS::register_type(msg);
@@ -27,9 +27,10 @@ int main(){
         double d = 321.321;
         string str = "stringsdasda";
 
-        dbus.send("devManager", "letter", DBUS::Signal, a, str, msg, sizeof(Message));
+        // dbus.send("devManager", "letter", DBUS::Signal, a, str, msg, sizeof(Message));
         // dbus.send("devManager", "letter", DBUS::Signal, 1111);
         // dbus.send2("devManager", "letter", DBUS::Signal, DBUS::Struct, &msg, sizeof(Message));
+        dbus.send("freedesktop", "ListNames", DBUS::Method);
         usleep(500*1000);
-    }
+    // }
 }
