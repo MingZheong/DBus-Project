@@ -224,26 +224,44 @@ void DBus_Base::recThread(DBus_Base* obj)
                 }
             }
 
-            obj->pasedArgs(&iter);
+            obj->pasedArgs(&iter, Signal);
+            dbus_connection_flush(obj->mConnection);
+            dbus_message_unref(msg);
 
         }
         else if(DBUS_MESSAGE_TYPE_METHOD_CALL == dbus_message_get_type(msg)){
             cc << "recThread is method" << ee;
+            obj->returnMsg = msg;
         }
         else{
             std::cout << "neither method nor signal" << std::endl;
         }
+
+        
     }
 }
 
-/**
- * 
- */
-int DBus_Base::Message(std::string msg_name, MessageType message_type, void *data, int cnt)
+bool DBus_Base::releaseRecvData()
 {
-    return 0;
-}
+    cc<<"free"<<ee;
+   for(auto& i:recArgs){
+       
+       switch (i.type)
+       {
+       case DBUS_TYPE_INT16: delete (short*)i.data; cc<<"free short"<<ee; break;
+       case DBUS_TYPE_INT32: delete (int*)i.data; cc<<"free int"<<ee; break;
+       case DBUS_TYPE_INT64: delete (long*)i.data; cc<<"free long"<<ee; break;
+       case DBUS_TYPE_DOUBLE: delete (double*)i.data; cc<<"free double"<<ee; break;
+       case DBUS_TYPE_STRING: cc<<(char*)i.data<<ee; delete [] (char*)i.data; cc<<"free char"<<ee; break;
+       case DBUS_TYPE_BYTE: delete [] (char*)i.data; cc<<"free byte"<<ee; break;
+       
+       default:
+           break;
+       }
+   }
 
+   recArgs.clear();
+}
 
 /**
  * 
@@ -313,6 +331,9 @@ void DBus_Base::sendPrepare(std::string dest_name, std::string msg_name, Message
             return ;
         }
     }
+    else if(messageType == Method_Return){
+        msgSendMsg = dbus_message_new_method_return(returnMsg);
+    }
     else{
         std::cout << "neither signal nor method!" << std::endl;
         dbus_message_unref(msgSendMsg);
@@ -322,7 +343,6 @@ void DBus_Base::sendPrepare(std::string dest_name, std::string msg_name, Message
     dbus_message_iter_init_append(msgSendMsg, msgIter);
     if(dbus_error_is_set(mDbusErr))
         std::cout << "error: " << mDbusErr->message << std::endl;
-    msgIterVec.push_back(msgIter);
 
     const char *tmp = msg_name.c_str();
     dbus_message_iter_append_basic(msgIter, DBUS_TYPE_STRING, &tmp);
@@ -333,20 +353,6 @@ void DBus_Base::sendPrepare(std::string dest_name, std::string msg_name, Message
  */
 void DBus_Base::sendRelease(MessageType messageType)
 {
-    // for(std::vector<DBusMessageIter*>::iterator it=msgIterVec.begin()+1; it!=msgIterVec.end()&&msgIterVec.size()>1; it++){
-    //     std::cout << "close container" <<    std::endl;
-    //     if(!dbus_message_iter_close_container(msgIter, *it.base())){
-    //         if(dbus_error_is_set(mDbusErr)){
-    //             std::cout << mDbusErr->message << std::endl;
-    //             dbus_error_free(mDbusErr);
-    //         }
-    //     }
-    //     delete *it.base();
-    // }
-
-    delete msgIterVec.front();
-    msgIterVec.clear();
-
     if(messageType == Signal){
         if(!dbus_connection_send(mConnection, msgSendMsg, &msgSerial)){
                 if(dbus_error_is_set(mDbusErr)){
@@ -400,7 +406,7 @@ void DBus_Base::getReplyArgs()
     // cc << dbus_message_get_member(msgReplyMsg) << ee;
     dbus_message_iter_init(msgReplyMsg, msgIter);
 
-    pasedArgs(msgIter);
+    pasedArgs(msgIter, Method_Return);
 
     dbus_message_unref(msgReplyMsg);
     delete msgIter;
@@ -409,35 +415,51 @@ void DBus_Base::getReplyArgs()
 /**
  * 
  */
-void DBus_Base::pasedArgs(DBusMessageIter* iter)
+void DBus_Base::pasedArgs(DBusMessageIter* iter, MessageType megType)
 {
+    Recv_Data recvData;
     do
     {
         int type = dbus_message_iter_get_arg_type(iter);
         if(type == DBUS_TYPE_INT16){
-            short data;
-            dbus_message_iter_get_basic(iter, &data);
+            short *data = new short;
+            dbus_message_iter_get_basic(iter, data);
+            recvData.data = data;
+            recvData.size = sizeof(short);
+            recvData.type = DBUS_TYPE_INT16;
             std::cout << data << std::endl;
         }
         else if(type == DBUS_TYPE_INT32){
-            int data;
-            dbus_message_iter_get_basic(iter, &data);
-            std::cout << data << std::endl;
+            int *data = new int;
+            dbus_message_iter_get_basic(iter, data);
+            recvData.data = data;
+            recvData.size = sizeof(int);
+            recvData.type = DBUS_TYPE_INT32;
         }
         else if(type == DBUS_TYPE_INT64){
-            long data;
-            dbus_message_iter_get_basic(iter, &data);
-            std::cout << data << std::endl;
+            long *data = new long;
+            dbus_message_iter_get_basic(iter, data);
+            recvData.data = data;
+            recvData.size = sizeof(long);
+            recvData.type = DBUS_TYPE_INT64;
         }
         else if(type == DBUS_TYPE_STRING){
             char* data;
             dbus_message_iter_get_basic(iter, &data);
-            std::cout << data << std::endl;
+            cc << strlen(data) << ee;
+            char *buf = new char [strlen(data)+1];
+            memcpy(buf, data, strlen(data));
+            buf[strlen(data)] = '\0';
+            recvData.data = buf;
+            recvData.size = strlen(data);
+            recvData.type = DBUS_TYPE_STRING;
         }
         else if(type == DBUS_TYPE_DOUBLE){
-            double data;
-            dbus_message_iter_get_basic(iter, &data);
-            std::cout << data << std::endl;
+            double *data = new double;
+            dbus_message_iter_get_basic(iter, data);
+            recvData.data = data;
+            recvData.size = sizeof(double);
+            recvData.type = DBUS_TYPE_DOUBLE;
         }
         else if(type == DBUS_TYPE_ARRAY){
             DBusMessageIter subIter;
@@ -446,17 +468,27 @@ void DBus_Base::pasedArgs(DBusMessageIter* iter)
             if(elementType == DBUS_TYPE_BYTE){
                 cc << "is fixd array " << ee;
                 int elementNum;
-                ::Message *data = NULL;
+                char *data = NULL;
                 dbus_message_iter_get_fixed_array(&subIter, &data, &elementNum);
-                std::cout << data->buf << std::endl;
+                char *buf = new char [elementNum];
+                memcpy(buf, data, elementNum);
+                recvData.data = buf;
+                recvData.size = elementNum;
+                recvData.type = DBUS_TYPE_BYTE;
             }else
-                pasedArgs(&subIter);
+                pasedArgs(&subIter, megType);
         }
         else if(type == DBUS_TYPE_STRUCT){
             DBusMessageIter subIter;
             dbus_message_iter_recurse(iter, &subIter);
-            pasedArgs(&subIter);
+            pasedArgs(&subIter, megType);
         }
+
+        if(megType != Method_Return)
+            recArgs.push_back(recvData);
+        else
+            replyArgs.push_back(recvData);
+
         if(dbus_message_iter_has_next(iter)){
             dbus_message_iter_next(iter);
             continue;
@@ -469,7 +501,7 @@ void DBus_Base::pasedArgs(DBusMessageIter* iter)
 /**
  * 
  */
-int DBus_Base::appendByType(std::vector<DBusMessageIter*>& iter, std::string type, const void* data)
+int DBus_Base::appendByType(DBusMessageIter*& iter, std::string type, const void* data)
 {
     Data_Type dt;
     for(auto& i:typeVec)
@@ -479,31 +511,31 @@ int DBus_Base::appendByType(std::vector<DBusMessageIter*>& iter, std::string typ
         }
      
     if(dt.type.compare("i") == 0 && tmpData == NULL){
-        if(!dbus_message_iter_append_basic(iter.front(), dt.dbus_type, data))
+        if(!dbus_message_iter_append_basic(iter, dt.dbus_type, data))
             if(dbus_error_is_set(mDbusErr))
                 std::cout << "error: " << mDbusErr->message << std::endl;
     }
     else if(dt.type.compare("s") == 0){
-        if(!dbus_message_iter_append_basic(iter.front(), dt.dbus_type, data))
+        if(!dbus_message_iter_append_basic(iter, dt.dbus_type, data))
             std::cout << "error: " << mDbusErr->message << std::endl;
     }
     else if(dt.type.compare("l") == 0){
-        if(!dbus_message_iter_append_basic(iter.front(), dt.dbus_type, data)) 
+        if(!dbus_message_iter_append_basic(iter, dt.dbus_type, data)) 
             std::cout << "error: " << mDbusErr->message << std::endl;
     }
     else if(dt.type.compare("d") == 0){
-        if(!dbus_message_iter_append_basic(iter.front(), dt.dbus_type, data)) 
+        if(!dbus_message_iter_append_basic(iter, dt.dbus_type, data)) 
             std::cout << "error: " << mDbusErr->message << std::endl;
     }
     else if(dt.type.compare("Pc") == 0 || dt.type.compare("PKc") == 0){
         const char *tmp = *(const char **)data;
-        if(!dbus_message_iter_append_basic(iter.front(), dt.dbus_type, &tmp))
+        if(!dbus_message_iter_append_basic(iter, dt.dbus_type, &tmp))
             std::cout << "error: " << mDbusErr->message << std::endl;
     }
     else if(dt.fullType.compare("string") == 0){
         std::string *str = (std::string*)data;
         const char* tmp = str->c_str();
-        if(!dbus_message_iter_append_basic(iter.front(), dt.dbus_type, &tmp))
+        if(!dbus_message_iter_append_basic(iter, dt.dbus_type, &tmp))
             std::cout << "error: " << mDbusErr->message << std::endl;
     }else if(dt.type.compare("c") == 0 || dt.type.compare("x") == 0 || dt.type.compare("f") == 0){
         return -1;
@@ -514,7 +546,7 @@ int DBus_Base::appendByType(std::vector<DBusMessageIter*>& iter, std::string typ
     else{
         // DBusMessageIter *subIter = new DBusMessageIter;
         DBusMessageIter subIter;
-        if(!dbus_message_iter_open_container(iter.front(), DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE_AS_STRING, &subIter)){
+        if(!dbus_message_iter_open_container(iter, DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE_AS_STRING, &subIter)){
             dbus_error_is_set(mDbusErr);
             std::cout << mDbusErr->message << std::endl;
             return -2;
@@ -522,7 +554,7 @@ int DBus_Base::appendByType(std::vector<DBusMessageIter*>& iter, std::string typ
         if(!dbus_message_iter_append_fixed_array(&subIter, DBUS_TYPE_BYTE, &tmpData, *(int*)data))
             std::cout << "error: " << mDbusErr->message << std::endl;
         // iter.push_back(subIter);
-        dbus_message_iter_close_container(msgIterVec.front(), &subIter);
+        dbus_message_iter_close_container(iter, &subIter);
 
         tmpData = NULL;
     }

@@ -11,7 +11,7 @@ using namespace std;
 // };
 
 int main(){
-    DBUS::DBus_Base dbus("abc");
+    DBUS::DBus_Base dbus("dev");
 
     // while(1){
         
@@ -35,11 +35,15 @@ int main(){
         // dbus.send("freedesktop", "ListNames", DBUS::Method);
         dbus.send("dev", "iamaname", DBUS::Signal, msg, sizeof(Message),a, s, l, f, d, str);
         usleep(500*1000);
+
+        dbus.releaseRecvData();
     // }
 
     while (1)
     {
-        /* code */
+        dbus.send("dev", "iamaname", DBUS::Signal, msg, sizeof(Message),a, s, l, f, d, str);
+        dbus.releaseRecvData();
+        usleep(500*1000);
     }
     
 }

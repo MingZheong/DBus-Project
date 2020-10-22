@@ -20,6 +20,14 @@ struct Message
 
 namespace DBUS{
 
+struct Recv_Data
+{
+    void* data;
+    int type;
+    uint size;
+};
+
+
 struct Data_Type
 {
     std::string type;
@@ -27,7 +35,7 @@ struct Data_Type
     std::string fullType;
 };
 
-enum MessageType{Signal, Method};
+enum MessageType{Signal, Method, Method_Return};
 enum DataType{Int, Double, Boolean, String, Struct, Array};
 
 static std::vector<Data_Type>typeVec;
@@ -43,11 +51,6 @@ void register_type(const T data){
 }
 
 
-
-
-
-
-
 class DBus_Base
 {
     
@@ -60,7 +63,7 @@ public:
     
     // deal by type template
     template<typename Types>
-    int deal(std::vector<DBusMessageIter*> &iter, const Types arg){
+    int deal(DBusMessageIter* &iter, const Types arg){
         return appendByType(iter, typeid(arg).name(), &arg);
     }
 
@@ -68,7 +71,7 @@ public:
     template<typename... Types>
     void send(std::string dest_name, std::string msg_name, MessageType messageType, const Types... rest){
         sendPrepare(dest_name, msg_name, messageType);
-        int arr[] = {deal(msgIterVec, rest)...};
+        int arr[] = {deal(msgIter, rest)...};
         sendRelease(messageType);
     }
 
@@ -78,18 +81,19 @@ public:
     void run();
     void stop();
     static void recThread(DBus_Base* obj);
+    bool releaseRecvData();
 
 private:
-    int appendByType(std::vector<DBusMessageIter*>&, std::string type, const void* data);
+    int appendByType(DBusMessageIter*&, std::string type, const void* data);
     void init_base_type();
     void sendPrepare(std::string dest_name, std::string msg_name, MessageType messageType);
     void sendRelease(MessageType messageType);
     void getReplyArgs();
-    void pasedArgs(DBusMessageIter* iter);
+    void pasedArgs(DBusMessageIter* iter, MessageType type);
     
 
 protected:
-    virtual int Message(std::string msg_name, MessageType message_type, void *data, int cnt);
+    virtual int Message(std::string msg_name, MessageType message_type, std::vector<void*>dataList, int cnt)=0;
     static int toMatchDataType(DataType data_type);
     
 
@@ -118,8 +122,12 @@ private:
     DBusMessage *msgSendMsg, *msgReplyMsg;
     DBusPendingCall *msgPending;
 
-    std::vector<DBusMessageIter*> msgIterVec;
     DBusMessageIter *msgIter;
+
+    std::vector<Recv_Data>replyArgs;
+    std::vector<Recv_Data>recArgs;
+
+    DBusMessage* returnMsg;
 };
 
 }
