@@ -11,7 +11,7 @@ using namespace std;
 // };
 
 int main(){
-    DBUS::DBus_Base dbus("dev");
+    DBUS::DBus_Base dbus("abc");
 
     // while(1){
         
@@ -27,10 +27,19 @@ int main(){
         double d = 321.321;
         string str = "stringsdasda";
 
+        dbus.run();
+
         // dbus.send("devManager", "letter", DBUS::Signal, a, str, msg, sizeof(Message));
         // dbus.send("devManager", "letter", DBUS::Signal, 1111);
         // dbus.send2("devManager", "letter", DBUS::Signal, DBUS::Struct, &msg, sizeof(Message));
-        dbus.send("freedesktop", "ListNames", DBUS::Method);
+        // dbus.send("freedesktop", "ListNames", DBUS::Method);
+        dbus.send("dev", "iamaname", DBUS::Signal, msg, sizeof(Message),a, s, l, f, d, str);
         usleep(500*1000);
     // }
+
+    while (1)
+    {
+        /* code */
+    }
+    
 }

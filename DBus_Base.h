@@ -4,6 +4,7 @@
 #include "dbus/dbus.h"
 #include <iostream>
 #include <cstdlib>
+#include <unistd.h>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -71,8 +72,12 @@ public:
         sendRelease(messageType);
     }
 
+    void addMatch(std::string rule);
+    void clearMatch(std::string rule);
+
     void run();
     void stop();
+    static void recThread(DBus_Base* obj);
 
 private:
     int appendByType(std::vector<DBusMessageIter*>&, std::string type, const void* data);
@@ -81,6 +86,7 @@ private:
     void sendRelease(MessageType messageType);
     void getReplyArgs();
     void pasedArgs(DBusMessageIter* iter);
+    
 
 protected:
     virtual int Message(std::string msg_name, MessageType message_type, void *data, int cnt);
